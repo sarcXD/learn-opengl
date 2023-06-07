@@ -12,5 +12,5 @@ build_command="g++ -g -Og $files $link_opts -o $output_name -I $include_path -L 
 # exec
 # build AND run
 $build_command
-run=1
-./$output_name
+# run=1
+# ./$output_name
