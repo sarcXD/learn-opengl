@@ -1,7 +1,7 @@
 #!/bin/sh
 build_mode="debug"
 
-files="main.cpp glad.c"
+files="code/main.cpp code/glad.c"
 link_opts="-lglfw3 -lwayland-client"
 output_name=main
 include_path=include
