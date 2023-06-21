@@ -7,7 +7,7 @@
 
 #define PIVOT_X 0
 #define PIVOT_Y 1
-#define PIVOT_Z 1
+#define PIVOT_Z 2
 
 // ************************** Primarily for 2d things ***************************
 typedef struct Vec3 {
@@ -190,7 +190,7 @@ Vec4 Mul_Mat4Vec4(Mat4 Matrix, Vec4 S)
   return Res;
 }
 
-Mat4 Mul_Mat(Mat4 M1, Mat4 M2)
+Mat4 Mul_Mat4Mat4(Mat4 M1, Mat4 M2)
 {
   Mat4 Res;
   // Row 0
@@ -242,7 +242,7 @@ Mat4 CreateScaleMat(Vec4 S)
 Mat4 CreateRotationMat(r32 Theta, u8 Pivot)
 {
   r32 CosTheta = cos(Theta);
-  r32 SinTheta = cos(Theta);
+  r32 SinTheta = sin(Theta);
 
   Mat4 RotMat;
   if (Pivot == PIVOT_X)

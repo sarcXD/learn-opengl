@@ -26,6 +26,9 @@
 #include "math.h"
 #include "gl_graphics.cpp"
 
+#define WIN_WIDTH 1280
+#define WIN_HEIGHT 1024
+
 void framebuffer_size_callback(GLFWwindow *window, i32 width, i32 height)
 {
   glViewport(0, 0, width, height);
@@ -49,7 +52,7 @@ int main()
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-  GLFWwindow *Window = glfwCreateWindow(1920, 1080, "LearnOpenGL", NULL, NULL);
+  GLFWwindow *Window = glfwCreateWindow(WIN_WIDTH, WIN_HEIGHT, "LearnOpenGL", NULL, NULL);
   if (Window == NULL)
   {
     // todo(talha): add error logging for failed to create glfw window
@@ -67,15 +70,15 @@ int main()
     return -1;
   }
 
-  glViewport(0, 0, 1920, 1080);
+  glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT);
   glfwSetFramebufferSizeCallback(Window, framebuffer_size_callback);
 
   r32 vertices[] = {
     // position             colors                  texture coords
    -0.5f, -0.5f, 0.0f,    0.0f, 0.0f, 1.0f,       0.0f, 0.0f, //bottom left
-    0.0f, -0.5f, 0.0f,    0.0f, 1.0f, 0.0f,       1.0f, 0.0f, //bottom right
-   -0.5f,  0.0f, 0.0f,    1.0f, 0.0f, 0.0f,       0.0f, 1.0f, //top left
-    0.0f,  0.0f, 0.0f,    1.0f, 0.0f, 0.0f,       1.0f, 1.0f //top right
+    0.5f, -0.5f, 0.0f,    0.0f, 1.0f, 0.0f,       1.0f, 0.0f, //bottom right
+   -0.5f,  0.5f, 0.0f,    1.0f, 0.0f, 0.0f,       0.0f, 1.0f, //top left
+    0.5f,  0.5f, 0.0f,    1.0f, 0.0f, 0.0f,       1.0f, 1.0f //top right
   };
 
   u32 indices[] = {
@@ -174,7 +177,7 @@ int main()
     "out vec2 TextureCoord;\n"
     "uniform mat4 Transform;\n"
     "void main() {\n"
-    "gl_Position = vec4(aPos, 1.0f);\n"
+    "gl_Position = Transform*vec4(aPos, 1.0f);\n"
     "VertexColor = aColor;\n"
     "TextureCoord = aTexCoord;\n"
     "}\0";
@@ -194,6 +197,7 @@ int main()
     "out vec4 FragColor;\n"
     "uniform sampler2D Texture0;\n"
     "uniform sampler2D Texture1;\n"
+    "uniform float TexWeight;\n"
     "void main() {\n"
     "FragColor = mix(texture(Texture0, TextureCoord), texture(Texture1, TextureCoord), TexWeight);\n"
     "}\0";
@@ -201,13 +205,16 @@ int main()
   u32 FragmentShader = CreateFragmentShader(FragmentShaderSource);
   u32 ShaderProgram = CreateShaderProgram(VertexShader, FragmentShader);
 
+
   // shader program using color attributes
   glUseProgram(ShaderProgram);
   glUniform1i(glGetUniformLocation(ShaderProgram, "Texture0"), 0);
   glUniform1i(glGetUniformLocation(ShaderProgram, "Texture1"), 1);
-  glUniform1i(glGetUniformLocation(ShaderProgram, "Transform"), 2);
 
   r32 TexWeight = 0.2f;
+
+  r32 scale_t = 0.025f;
+  b8 scale_dir = 1;
   while (!glfwWindowShouldClose(Window)) {
     glfwPollEvents();
     HandleInputs(Window);
@@ -220,12 +227,56 @@ int main()
       TexWeight -= TexWeight > 0.0f ? 0.01f : 0.0f;
     }
 
+    // @note: over here I am scaling, rotating and then translating the matrix
+    Vec4 ScaleFactor = (Vec4){.x=0.5,.y=0.5,.z=1.0f,.w=1.0f};
+    Mat4 S = CreateScaleMat(ScaleFactor);
+    Mat4 R = CreateRotationMat((r32)glfwGetTime(), PIVOT_Z);
+    R = Mul_Mat4Mat4(R,S);
+    Vec4 TransMat = (Vec4){.x=.5,.y=-0.5,.z=0,.w=0};
+    Mat4 T = CreateTranslationMat(TransMat);
+    T = Mul_Mat4Mat4(T,R);
+    const r32 RotArr[16] = {T.x0, T.x1, T.x2, T.x3,
+                            T.y0, T.y1, T.y2, T.y3,
+                            T.z0, T.z1, T.z2, T.z3,
+                            T.w0, T.w1, T.w2, T.w3};
+
+    glUniformMatrix4fv(glGetUniformLocation(ShaderProgram, "Transform"), 1, GL_TRUE, RotArr);
     glUniform1f(glGetUniformLocation(ShaderProgram, "TexWeight"), TexWeight);
     glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
     DrawRectangle(BO_Container.VAO);
 
+
+    // @note: creating the same rect in a different position using transformation
+    ScaleFactor = (Vec4){.x=scale_t,.y=scale_t,.z=1.0f,.w=1.0f};
+    S = CreateScaleMat(ScaleFactor);
+    if (scale_dir) {
+      if (scale_t < 3) {
+        scale_t += 0.025f;
+      } else {
+        scale_dir = 0;
+        scale_t -= 0.025f;
+      }
+    }
+    else {
+      if (scale_t > 0.025f) {
+        scale_t -= 0.025f;
+      } else {
+        scale_dir = 1;
+        scale_t += 0.025f;
+      }
+    }
+    TransMat = (Vec4){.x=-.5,.y=0.5,.z=0,.w=0};
+    T = CreateTranslationMat(TransMat);
+    T = Mul_Mat4Mat4(T,S);
+    const r32 ScaleArr[16] = {T.x0, T.x1, T.x2, T.x3,
+                            T.y0, T.y1, T.y2, T.y3,
+                            T.z0, T.z1, T.z2, T.z3,
+                            T.w0, T.w1, T.w2, T.w3};
+
+    glUniformMatrix4fv(glGetUniformLocation(ShaderProgram, "Transform"), 1, GL_TRUE, ScaleArr);
+    DrawRectangle(BO_Container.VAO);
 
     glfwSwapBuffers(Window);
   };
