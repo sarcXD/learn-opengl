@@ -1,2 +1,6 @@
 main
 .git
+.vs
+*.ilk
+*.obj
+*.pdb
