@@ -16,6 +16,8 @@ typedef struct Vec3 {
     r32 z;
 } Vec3;
 
+// *************************** Primarily for 3d things ********************************
+
 Vec3 ScalerAdd3(Vec3 Vec, r32 Scaler)
 {
     Vec.x += Scaler;
@@ -53,7 +55,7 @@ Vec3 AddVec3(Vec3 V, Vec3 K)
     return Res;
 }
 
-r32 VecLen3(Vec3 V)
+r32 LenVec3(Vec3 V)
 {
     r32 L = Sqrt(Sq(V.x) + Sq(V.y) + Sq(V.z));
     return L;
@@ -62,7 +64,7 @@ r32 VecLen3(Vec3 V)
 Vec3 UnitVec3(Vec3 V)
 {
     Vec3 R;
-    r32 L = VecLen3(V);
+    r32 L = LenVec3(V);
     R.x = V.x/L;
     R.y = V.y/L;
     R.z = V.z/L;
@@ -91,7 +93,6 @@ Vec3 CrossProductVec3(Vec3 S, Vec3 K)
     return R;
 }
 
-// *************************** Primarily for 3d things ********************************
 
 typedef struct Vec4 {
     r32 x;
@@ -161,7 +162,7 @@ Vec4 AddVec4(Vec4 V, Vec4 K)
     return Res;
 }
 
-r32 VecLen4(Vec4 V)
+r32 LenVec4(Vec4 V)
 {
     r32 L = Sqrt(Sq(V.x) + Sq(V.y) + Sq(V.z) +Sq(V.w));
     return L;
@@ -170,7 +171,7 @@ r32 VecLen4(Vec4 V)
 Vec4 UnitVec4(Vec4 V)
 {
     Vec4 R = {0};
-    r32 L = VecLen4(V);
+    r32 L = LenVec4(V);
     R.x = V.x/L;
     R.y = V.y/L;
     R.z = V.z/L;
@@ -201,6 +202,18 @@ Vec4 Mul_Mat4Vec4(Mat4 Matrix, Vec4 S)
     Res.w = (Matrix.w0*S.w) + (Matrix.w1*S.y) + (Matrix.w2*S.z) + (Matrix.w3*S.w);
     
     return Res;
+}
+
+// @note: initialises an identity matrix
+Mat4 IdentityMat()
+{
+  Mat4 M = {0};
+  M.x0 = 1.0f;
+  M.y1 = 1.0f;
+  M.z2 = 1.0f;
+  M.w3 = 1.0f;
+
+  return M;
 }
 
 Mat4 Mul_Mat4Mat4(Mat4 M1, Mat4 M2)
@@ -285,6 +298,55 @@ Mat4 CreateRotationMat(r32 Theta, u8 Pivot)
     }
     
     return RotMat;
+}
+
+Mat4 CreateFrustum(r32 left, r32 right, r32 bot, r32 top, r32 nearCam, r32 farCam)
+{
+  Mat4 F = {0};
+  F.x0 = 2.0f*nearCam/(right - left);    
+  F.x3 = -nearCam*(right + left)/(right - left);
+  F.y1 = 2.0f*nearCam/(top-bot);         
+  F.y3 = -nearCam*(top + bot)/(top - bot);
+  F.z2 = -(farCam+nearCam)/(farCam-nearCam); 
+  F.z3 = 2.0f*farCam*nearCam/(nearCam - farCam); 
+  F.w2 = -1.0f;                       
+  F.w3 = 0.0f;
+
+  return F;
+}
+
+Mat4 CreatePerspectiveUsingFrustum(r32 fov, r32 aspect, r32 nearCam, r32 farCam)
+{
+  r32 top = nearCam*tan(fov)/2;
+  r32 bot = -top;
+  r32 right = top*aspect;
+  r32 left = -right;
+
+  return CreateFrustum(left, right, bot, top, nearCam, farCam);
+}
+
+// @research: the gram-schmidt process:
+// https://en.wikipedia.org/wiki/Gram%E2%80%93Schmidt_process 
+Mat4 CreateLookAtMat4(Vec3 CameraPos, Vec3 CameraTarget, Vec3 Up)
+{
+  // deriving the respective camera vectors
+  Vec3 CameraDir = UnitVec3(AddVec3(CameraPos, ScalerMul3(CameraTarget, -1.0f)));
+  Vec3 CameraRight = UnitVec3(CrossProductVec3(Up, CameraDir));
+  Vec3 CameraUp = CrossProductVec3(CameraRight, CameraDir);
+
+  Mat4 DirMat = IdentityMat();
+  DirMat.x0 = CameraRight.x; DirMat.x1 = CameraRight.y; DirMat.x2 = CameraRight.z;
+  DirMat.y0 = CameraUp.x; DirMat.y1 = CameraUp.y; DirMat.y2 = CameraUp.z;
+  DirMat.z0 = CameraDir.x; DirMat.z1 = CameraDir.y; DirMat.z2 = CameraDir.z;
+
+  // make camera position -ve
+  Mat4 TranslationMat = IdentityMat();
+  TranslationMat.x3 = -CameraPos.x;
+  TranslationMat.y3 = -CameraPos.y;
+  TranslationMat.z3 = -CameraPos.z;
+
+  Mat4 LookAt = Mul_Mat4Mat4(DirMat, TranslationMat); 
+  return LookAt;
 }
 
 #if 0

@@ -30,6 +30,11 @@ typedef  double   r64;
 #define WIN_WIDTH 1280
 #define WIN_HEIGHT 1024
 
+/*
+ * @todo:
+ * 1. fix the frametime checking. Using glfwWallClock and QueryPerformanceFrequency and QueryPerformanceCounter
+ *    - need to learn how to use QueryPerformanceFrequency and QueryPerformanceCounter
+ */
 static i64 GlobalPerfCountFrequency;
 
 void framebuffer_size_callback(GLFWwindow *window, i32 width, i32 height)
@@ -59,6 +64,17 @@ Win32GetSecondsElapsed(LARGE_INTEGER Start, LARGE_INTEGER End)
 {
     r32 Result = (r32)(End.QuadPart - Start.QuadPart)/(r32)GlobalPerfCountFrequency;
     return(Result);
+}
+
+void DrawModel(Mat4 Model, u32 ShaderProgram, BufferO BO_Container)
+{
+  const r32 model[16] = {Model.x0, Model.x1, Model.x2, Model.x3,
+      Model.y0, Model.y1, Model.y2, Model.y3,
+      Model.z0, Model.z1, Model.z2, Model.z3,
+      Model.w0, Model.w1, Model.w2, Model.w3};
+  
+  glUniformMatrix4fv(glGetUniformLocation(ShaderProgram, "Model"), 1, GL_TRUE, model);
+  DrawCube(BO_Container.VAO);
 }
 
 int main()
@@ -108,12 +124,56 @@ int main()
     glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT);
     glfwSetFramebufferSizeCallback(Window, framebuffer_size_callback);
     
-    r32 vertices[] = {
+    r32 _vertices[] = {
         // position             colors                  texture coords
         -0.5f, -0.5f, 0.0f,    0.0f, 0.0f, 1.0f,       0.0f, 0.0f, //bottom left
         0.5f, -0.5f, 0.0f,    0.0f, 1.0f, 0.0f,       1.0f, 0.0f, //bottom right
         -0.5f,  0.5f, 0.0f,    1.0f, 0.0f, 0.0f,       0.0f, 1.0f, //top left
         0.5f,  0.5f, 0.0f,    1.0f, 0.0f, 0.0f,       1.0f, 1.0f //top right
+    };
+
+    r32 vertices[] = {
+     -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+     0.5f, -0.5f, -0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 0.0f,
+
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 1.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+
+    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f, -0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f, -0.5f,  0.5f,  1.0f, 0.0f,
+    -0.5f, -0.5f,  0.5f,  0.0f, 0.0f,
+    -0.5f, -0.5f, -0.5f,  0.0f, 1.0f,
+
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f,
+     0.5f,  0.5f, -0.5f,  1.0f, 1.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+     0.5f,  0.5f,  0.5f,  1.0f, 0.0f,
+    -0.5f,  0.5f,  0.5f,  0.0f, 0.0f,
+    -0.5f,  0.5f, -0.5f,  0.0f, 1.0f
     };
     
     u32 indices[] = {
@@ -124,7 +184,7 @@ int main()
     u32 i_sz = sizeof(indices);
     u32 v_sz = sizeof(vertices);
     
-    BufferO BO_Container = CreateRectangleTextured(vertices, v_sz, indices, i_sz);
+    BufferO BO_Container = CreateCubeTextured(vertices, v_sz);
     BO_Container.TextureO = (u32*)malloc(sizeof(u32)*15); // at max we can have 15 textures on one object
     // load texture using stb image loader
     i32 width, height, nrChannels;
@@ -218,9 +278,11 @@ int main()
         "layout (location=2) in vec2 aTexCoord;\n"
         "out vec3 VertexColor;\n"
         "out vec2 TextureCoord;\n"
-        "uniform mat4 Transform;\n"
+        "uniform mat4 Model;\n"
+        "uniform mat4 View;\n"
+        "uniform mat4 Projection;\n"
         "void main() {\n"
-        "gl_Position = Transform*vec4(aPos, 1.0f);\n"
+        "gl_Position = Projection*View*Model*vec4(aPos, 1.0f);\n"
         "VertexColor = aColor;\n"
         "TextureCoord = aTexCoord;\n"
         "}\0";
@@ -253,11 +315,9 @@ int main()
     glUseProgram(ShaderProgram);
     glUniform1i(glGetUniformLocation(ShaderProgram, "Texture0"), 0);
     glUniform1i(glGetUniformLocation(ShaderProgram, "Texture1"), 1);
-    
+    glEnable(GL_DEPTH_TEST);
+
     r32 TexWeight = 0.2f;
-    r32 scale_t = 0.025f;
-    r32 scale_amount = 0.025f;
-    b8 scale_dir = 1;
     
     LARGE_INTEGER LastCounter = Win32GetWallClock();
     u64 LastCycleCount = __rdtsc();
@@ -297,27 +357,63 @@ int main()
             TexWeight -= TexWeight > 0.0f ? 0.01f : 0.0f;
         }
         
-        // @note: over here I am scaling, rotating and then translating the matrix
-        Vec4 ScaleFactor = InitVec4(0.5f, 0.5f, 1.0f, 1.0f);
-        Mat4 S = CreateScaleMat(ScaleFactor);
-        Mat4 R = CreateRotationMat((r32)scale_t, PIVOT_Z);
-        R = Mul_Mat4Mat4(R,S);
-        Vec4 TransMat = InitVec4(0.5f, -0.5f, 0.0f, 0.0f);
-        Mat4 T = CreateTranslationMat(TransMat);
-        T = Mul_Mat4Mat4(T,R);
-        const r32 RotArr[16] = {T.x0, T.x1, T.x2, T.x3,
-            T.y0, T.y1, T.y2, T.y3,
-            T.z0, T.z1, T.z2, T.z3,
-            T.w0, T.w1, T.w2, T.w3};
-        
-        glUniformMatrix4fv(glGetUniformLocation(ShaderProgram, "Transform"), 1, GL_TRUE, RotArr);
-        glUniform1f(glGetUniformLocation(ShaderProgram, "TexWeight"), TexWeight);
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glUniform1f(glGetUniformLocation(ShaderProgram, "TexWeight"), TexWeight);
+        // @todo: how to create multiple cubes??
+        //Mat4 Tx1 = CreateTranslationMat(InitVec4(5.0f, 0, -5.0f, 1));
+        //Tx1 = Mul_Mat4Mat4(Tx1, Ry);
+        //Mat4 Model1 = IdentityMat();
+        //Model1 = Mul_Mat4Mat4(Tx1, Model);
+        //DrawModel(Model1, ShaderProgram, BO_Container);
         
-        DrawRectangle(BO_Container.VAO);
+        // view matrix
+        // @note: in normalised device coordinates, OPENGL switches the handedness
+        // this is why:
+        // x -> -ve
+        // x <- +ve
+        r32 t_ms = (r32)glfwGetTime();
+        Vec3 CameraPos = {0};
+        CameraPos.x = sin(t_ms)*10.0f;
+        CameraPos.z = cos(t_ms)*10.0f;
+        //CameraPos.z = 10.0f;
+        Vec3 CameraTarget = {0};
+        Vec3 Up = {0};
+        Up.y = 1.0f;
+        Mat4 LookAt = CreateLookAtMat4(CameraPos, CameraTarget, Up);
+        Mat4 View = LookAt;
+        // projection matrix
+        Mat4 Projection = CreatePerspectiveUsingFrustum((r32)PI/4, (r32)WIN_WIDTH/(r32)WIN_HEIGHT, 0.1f, 100.0f); 
+
         
+        const r32 view[16] = {View.x0, View.x1, View.x2, View.x3,
+            View.y0, View.y1, View.y2, View.y3,
+            View.z0, View.z1, View.z2, View.z3,
+            View.w0, View.w1, View.w2, View.w3};
+        const r32 projection[16] = {Projection.x0, Projection.x1, Projection.x2, Projection.x3,
+            Projection.y0, Projection.y1, Projection.y2, Projection.y3,
+            Projection.z0, Projection.z1, Projection.z2, Projection.z3,
+            Projection.w0, Projection.w1, Projection.w2, Projection.w3};
+              glUniformMatrix4fv(glGetUniformLocation(ShaderProgram, "View"), 1, GL_TRUE, view);
+              glUniformMatrix4fv(glGetUniformLocation(ShaderProgram, "Projection"), 1, GL_TRUE, projection);
+
+        //Mat4 Rx = CreateRotationMat((r32)PI/4.0f, PIVOT_X);
+        //Mat4 Ry = CreateRotationMat((r32)PI/8.0f, PIVOT_Y);
+        //Ry = Mul_Mat4Mat4(Ry, Rx);
+        Mat4 Tx = CreateTranslationMat(InitVec4(0.0f, 0, 0.0f, 1));
+        //Tx = Mul_Mat4Mat4(Tx, Ry);
+        Mat4 Model = IdentityMat();
+        Model = Mul_Mat4Mat4(Tx, Model);
+        DrawModel(Model, ShaderProgram, BO_Container);
+
+        // model 2
+        Mat4 Tx1 = CreateTranslationMat(InitVec4(3.0f, 1.0f, 0.0f, 1));
+        //Tx = Mul_Mat4Mat4(Tx, Ry);
+        Mat4 Model1 = IdentityMat();
+        Model1 = Mul_Mat4Mat4(Tx1, Model1);
+        DrawModel(Model1, ShaderProgram, BO_Container);
         
+#if RECT_THAT_GETS_LARGER_AND_SMALLER_OVER_TIME
         // @note: creating the same rect in a different position using transformation
         ScaleFactor = InitVec4(scale_t, scale_t, 1.0f, 1.0f);
         S = CreateScaleMat(ScaleFactor);
@@ -347,18 +443,16 @@ int main()
         
         glUniformMatrix4fv(glGetUniformLocation(ShaderProgram, "Transform"), 1, GL_TRUE, ScaleArr);
         DrawRectangle(BO_Container.VAO);
-        
+#endif        
         
         glfwSwapBuffers(Window);
         
+#if QUANTM_DEBUG
         r32 MSPerFrame = 1000.0f*SecondsElapsedForFrame;
-        
-        u64 EndCycleCount = __rdtsc();
-        u64 CyclesElapsed = EndCycleCount - LastCycleCount;
-        
         char OutBuffer[256];
         _snprintf_s(OutBuffer, sizeof(OutBuffer), "%0.2fms/f\n", MSPerFrame);
         OutputDebugStringA(OutBuffer);
+#endif
         
         // TODO(talha): should these be cleared
         LastCounter = Win32GetWallClock();
