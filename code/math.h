@@ -3,7 +3,9 @@
 
 #define Sq(x) ((x)*(x))
 #define Sqrt(x) sqrt((x))
-#define PI 3.14159265358
+#define PI 3.14159265358f
+#define DegToRad(x) ((x)*(PI/180.0f))
+#define RadToDeg(x) ((x)*(180.0f/PI))
 
 #define PIVOT_X 0
 #define PIVOT_Y 1

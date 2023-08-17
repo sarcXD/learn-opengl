@@ -123,6 +123,7 @@ int main()
     
     glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT);
     glfwSetFramebufferSizeCallback(Window, framebuffer_size_callback);
+    glfwSetInputMode(Window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     
     r32 _vertices[] = {
         // position             colors                  texture coords
@@ -321,11 +322,26 @@ int main()
     
     LARGE_INTEGER LastCounter = Win32GetWallClock();
     u64 LastCycleCount = __rdtsc();
+    
+    // matrix stuff
+    Vec3 CameraPos = {0};
+    CameraPos.x = 0.0f;
+    CameraPos.z = 5.0f;
+    Vec3 CameraFront = {0};
+    // pointing inside to the screen
+    CameraFront.z = -1.0f;
+    Vec3 CameraUp = {0};
+    CameraUp.y = 1.0f;
+
+    r32 CameraSpeed = 0.1f;
     while (!glfwWindowShouldClose(Window)) {
         LARGE_INTEGER WorkCounter = Win32GetWallClock();
         r32 WorkSecondsElapsed = Win32GetSecondsElapsed(LastCounter, WorkCounter);
         
         r32 SecondsElapsedForFrame = WorkSecondsElapsed;
+        // @note: this caps the framerate
+        // also prevents, for now, incorrect speeds based on timings
+        // @todo: fix framerate capping and speed timings being affected by framerate
         if(SecondsElapsedForFrame < TargetSecondsPerFrame){
             while(SecondsElapsedForFrame < TargetSecondsPerFrame)
             {
@@ -348,13 +364,23 @@ int main()
         }
         glfwPollEvents();
         HandleInputs(Window);
-        if (glfwGetKey(Window, GLFW_KEY_UP) == GLFW_PRESS)
+        if (glfwGetKey(Window, GLFW_KEY_W) == GLFW_PRESS)
         {
-            TexWeight += TexWeight < 1.0f ? 0.01f : 0.0f;
+          CameraPos = AddVec3(CameraPos, ScalerMul3(CameraFront, CameraSpeed));
         }
-        if (glfwGetKey(Window, GLFW_KEY_DOWN) == GLFW_PRESS)
+        if (glfwGetKey(Window, GLFW_KEY_S) == GLFW_PRESS)
         {
-            TexWeight -= TexWeight > 0.0f ? 0.01f : 0.0f;
+          CameraPos = AddVec3(CameraPos, ScalerMul3(ScalerMul3(CameraFront, CameraSpeed), -1.0f));
+        }
+        if (glfwGetKey(Window, GLFW_KEY_A) == GLFW_PRESS)
+        {
+          Vec3 HorizontalVec = ScalerMul3(UnitVec3(CrossProductVec3(CameraFront, CameraUp)), CameraSpeed);
+          CameraPos = AddVec3(CameraPos, ScalerMul3(HorizontalVec, -1.0f));
+        }
+        if (glfwGetKey(Window, GLFW_KEY_D) == GLFW_PRESS)
+        {
+          Vec3 HorizontalVec = ScalerMul3(UnitVec3(CrossProductVec3(CameraFront, CameraUp)), CameraSpeed);
+          CameraPos = AddVec3(CameraPos, HorizontalVec);
         }
         
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -373,18 +399,26 @@ int main()
         // x -> -ve
         // x <- +ve
         r32 t_ms = (r32)glfwGetTime();
-        Vec3 CameraPos = {0};
-        CameraPos.x = sin(t_ms)*10.0f;
-        CameraPos.z = cos(t_ms)*10.0f;
-        //CameraPos.z = 10.0f;
-        Vec3 CameraTarget = {0};
-        Vec3 Up = {0};
-        Up.y = 1.0f;
-        Mat4 LookAt = CreateLookAtMat4(CameraPos, CameraTarget, Up);
+        r32 PitchAngle = PI;
+        r32 YawAngle = -PI/2.0f;
+        Vec3 YawDir{};
+
+        Vec3 PitchDir{};
+        PitchDir.y = sin(PitchAngle);
+        YawDir.x = cos(YawAngle) * cos(PitchAngle);
+        YawDir.z = sin(YawAngle) * cos(PitchAngle);
+
+        /*
+         * @note: camera direction is calculated by: CameraPos - CameraTarget
+         * this makes it point in the direction of the cameras +ve axis
+         * which also allows us to have the z-component by positive whilst by
+         * convention in OpenGL the +ve z-component points to the cameras -ve 
+         * direction
+         * */
+        Mat4 LookAt = CreateLookAtMat4(CameraPos, AddVec3(CameraPos, CameraFront), CameraUp);
         Mat4 View = LookAt;
         // projection matrix
         Mat4 Projection = CreatePerspectiveUsingFrustum((r32)PI/4, (r32)WIN_WIDTH/(r32)WIN_HEIGHT, 0.1f, 100.0f); 
-
         
         const r32 view[16] = {View.x0, View.x1, View.x2, View.x3,
             View.y0, View.y1, View.y2, View.y3,
