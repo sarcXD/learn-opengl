@@ -357,9 +357,10 @@ int main()
     State.Camera.CameraUp.y = 1.0f;
 
     State.Camera.MoveSpeed = 0.1f;
-    State.Input.Sensitivity = 0.01f;
-    State.Camera.PitchAngle = PI;
-    State.Camera.YawAngle = -PI/2.0f;
+
+    State.Input.Sensitivity = 0.1f;
+    State.Camera.PitchAngle = 0;
+    State.Camera.YawAngle = -90.0f;
 
     while (!glfwWindowShouldClose(Window)) {
         LARGE_INTEGER WorkCounter = Win32GetWallClock();
@@ -429,7 +430,7 @@ int main()
         // x -> -ve
         // x <- +ve
         r32 OffsetX = State.Input.MouseX - State.Input.LastMouseX;
-        r32 OffsetY = State.Input.LastMouseY - State.Input.MouseY;
+        r32 OffsetY = State.Input.MouseY - State.Input.LastMouseY;
         State.Input.LastMouseX = State.Input.MouseX;
         State.Input.LastMouseY = State.Input.MouseY;
 
@@ -442,9 +443,9 @@ int main()
         if (State.Camera.PitchAngle < -89.0f) State.Camera.PitchAngle = -89.0f;
 
         Vec3 Dir = {0};
-        Dir.y = sin(State.Camera.PitchAngle);
-        Dir.x = cos(State.Camera.YawAngle) * cos(State.Camera.PitchAngle);
-        Dir.z = sin(State.Camera.YawAngle) * cos(State.Camera.PitchAngle);
+        Dir.y = sin(DegToRad(State.Camera.PitchAngle));
+        Dir.x = cos(DegToRad(State.Camera.YawAngle)) * cos(DegToRad(State.Camera.PitchAngle));
+        Dir.z = sin(DegToRad(State.Camera.YawAngle)) * cos(DegToRad(State.Camera.PitchAngle));
         State.Camera.CameraFront = UnitVec3(Dir);
 
         /*
