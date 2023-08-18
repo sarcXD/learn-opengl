@@ -29,13 +29,36 @@ typedef  double   r64;
 
 #define WIN_WIDTH 1280
 #define WIN_HEIGHT 1024
+#define internal static
 
 /*
  * @todo:
  * 1. fix the frametime checking. Using glfwWallClock and QueryPerformanceFrequency and QueryPerformanceCounter
  *    - need to learn how to use QueryPerformanceFrequency and QueryPerformanceCounter
  */
-static i64 GlobalPerfCountFrequency;
+typedef struct {
+  r32 LastMouseX;
+  r32 LastMouseY;
+  r64 MouseX;
+  r64 MouseY;
+  r32 Sensitivity;
+} GameInput;
+
+typedef struct {
+  r32 MoveSpeed;
+  r32 PitchAngle;
+  r32 YawAngle;
+  Vec3 CameraPos;
+  Vec3 CameraFront;
+  Vec3 CameraUp;
+} GameCamera;
+
+typedef struct GameState {
+  GameCamera Camera;
+  GameInput Input;
+} GameState;
+
+internal i64 GlobalPerfCountFrequency;
 
 void framebuffer_size_callback(GLFWwindow *window, i32 width, i32 height)
 {
@@ -44,10 +67,6 @@ void framebuffer_size_callback(GLFWwindow *window, i32 width, i32 height)
 
 void HandleInputs(GLFWwindow *Window)
 {
-    if (glfwGetKey(Window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-    {
-        glfwSetWindowShouldClose(Window, 1);
-    }
 }
 
 inline LARGE_INTEGER
@@ -93,7 +112,10 @@ int main()
     i32 MonitorRefreshHz = 60;
     i32 GameUpdateHz = MonitorRefreshHz;
     r32 TargetSecondsPerFrame = 1.0f / (r32)GameUpdateHz;
-    
+
+    GameState State = {0};
+    State.Input.LastMouseX = WIN_WIDTH/2;
+    State.Input.LastMouseY = WIN_HEIGHT/2;
     
     // initialise glfw, set opengl versions
     // create glfw window
@@ -324,16 +346,21 @@ int main()
     u64 LastCycleCount = __rdtsc();
     
     // matrix stuff
-    Vec3 CameraPos = {0};
-    CameraPos.x = 0.0f;
-    CameraPos.z = 5.0f;
-    Vec3 CameraFront = {0};
+    State.Camera.CameraPos = {0};
+    State.Camera.CameraPos.x = 0.0f;
+    State.Camera.CameraPos.z = 5.0f;
+    State.Camera.CameraFront = {0};
     // pointing inside to the screen
-    CameraFront.z = -1.0f;
-    Vec3 CameraUp = {0};
-    CameraUp.y = 1.0f;
+    State.Camera.CameraFront.z = -1.0f;
 
-    r32 CameraSpeed = 0.1f;
+    State.Camera.CameraUp = {0};
+    State.Camera.CameraUp.y = 1.0f;
+
+    State.Camera.MoveSpeed = 0.1f;
+    State.Input.Sensitivity = 0.01f;
+    State.Camera.PitchAngle = PI;
+    State.Camera.YawAngle = -PI/2.0f;
+
     while (!glfwWindowShouldClose(Window)) {
         LARGE_INTEGER WorkCounter = Win32GetWallClock();
         r32 WorkSecondsElapsed = Win32GetSecondsElapsed(LastCounter, WorkCounter);
@@ -363,29 +390,32 @@ int main()
             // TODO(talha): Logging
         }
         glfwPollEvents();
-        HandleInputs(Window);
+        
+        // HandleInputs
+        if (glfwGetKey(Window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        {
+            glfwSetWindowShouldClose(Window, 1);
+        }
         if (glfwGetKey(Window, GLFW_KEY_W) == GLFW_PRESS)
         {
-          CameraPos = AddVec3(CameraPos, ScalerMul3(CameraFront, CameraSpeed));
+          State.Camera.CameraPos = AddVec3(State.Camera.CameraPos, ScalerMul3(State.Camera.CameraFront, State.Camera.MoveSpeed));
         }
         if (glfwGetKey(Window, GLFW_KEY_S) == GLFW_PRESS)
         {
-          CameraPos = AddVec3(CameraPos, ScalerMul3(ScalerMul3(CameraFront, CameraSpeed), -1.0f));
+          State.Camera.CameraPos = AddVec3(State.Camera.CameraPos, ScalerMul3(ScalerMul3(State.Camera.CameraFront, State.Camera.MoveSpeed), -1.0f));
         }
         if (glfwGetKey(Window, GLFW_KEY_A) == GLFW_PRESS)
         {
-          Vec3 HorizontalVec = ScalerMul3(UnitVec3(CrossProductVec3(CameraFront, CameraUp)), CameraSpeed);
-          CameraPos = AddVec3(CameraPos, ScalerMul3(HorizontalVec, -1.0f));
+          Vec3 HorizontalVec = ScalerMul3(UnitVec3(CrossProductVec3(State.Camera.CameraFront, State.Camera.CameraUp)), State.Camera.MoveSpeed);
+          State.Camera.CameraPos = AddVec3(State.Camera.CameraPos, ScalerMul3(HorizontalVec, -1.0f));
         }
         if (glfwGetKey(Window, GLFW_KEY_D) == GLFW_PRESS)
         {
-          Vec3 HorizontalVec = ScalerMul3(UnitVec3(CrossProductVec3(CameraFront, CameraUp)), CameraSpeed);
-          CameraPos = AddVec3(CameraPos, HorizontalVec);
+          Vec3 HorizontalVec = ScalerMul3(UnitVec3(CrossProductVec3(State.Camera.CameraFront, State.Camera.CameraUp)), State.Camera.MoveSpeed);
+          State.Camera.CameraPos = AddVec3(State.Camera.CameraPos, HorizontalVec);
         }
+        glfwGetCursorPos(Window, &State.Input.MouseX, &State.Input.MouseY);
         
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glUniform1f(glGetUniformLocation(ShaderProgram, "TexWeight"), TexWeight);
         // @todo: how to create multiple cubes??
         //Mat4 Tx1 = CreateTranslationMat(InitVec4(5.0f, 0, -5.0f, 1));
         //Tx1 = Mul_Mat4Mat4(Tx1, Ry);
@@ -398,15 +428,24 @@ int main()
         // this is why:
         // x -> -ve
         // x <- +ve
-        r32 t_ms = (r32)glfwGetTime();
-        r32 PitchAngle = PI;
-        r32 YawAngle = -PI/2.0f;
-        Vec3 YawDir{};
+        r32 OffsetX = State.Input.MouseX - State.Input.LastMouseX;
+        r32 OffsetY = State.Input.LastMouseY - State.Input.MouseY;
+        State.Input.LastMouseX = State.Input.MouseX;
+        State.Input.LastMouseY = State.Input.MouseY;
 
-        Vec3 PitchDir{};
-        PitchDir.y = sin(PitchAngle);
-        YawDir.x = cos(YawAngle) * cos(PitchAngle);
-        YawDir.z = sin(YawAngle) * cos(PitchAngle);
+        OffsetX *= State.Input.Sensitivity;
+        OffsetY *= State.Input.Sensitivity;
+        State.Camera.YawAngle += OffsetX;
+        State.Camera.PitchAngle += OffsetY;
+
+        if (State.Camera.PitchAngle > 89.0f) State.Camera.PitchAngle = 89.0f;
+        if (State.Camera.PitchAngle < -89.0f) State.Camera.PitchAngle = -89.0f;
+
+        Vec3 Dir = {0};
+        Dir.y = sin(State.Camera.PitchAngle);
+        Dir.x = cos(State.Camera.YawAngle) * cos(State.Camera.PitchAngle);
+        Dir.z = sin(State.Camera.YawAngle) * cos(State.Camera.PitchAngle);
+        State.Camera.CameraFront = UnitVec3(Dir);
 
         /*
          * @note: camera direction is calculated by: CameraPos - CameraTarget
@@ -415,7 +454,7 @@ int main()
          * convention in OpenGL the +ve z-component points to the cameras -ve 
          * direction
          * */
-        Mat4 LookAt = CreateLookAtMat4(CameraPos, AddVec3(CameraPos, CameraFront), CameraUp);
+        Mat4 LookAt = CreateLookAtMat4(State.Camera.CameraPos, AddVec3(State.Camera.CameraPos, State.Camera.CameraFront), State.Camera.CameraUp);
         Mat4 View = LookAt;
         // projection matrix
         Mat4 Projection = CreatePerspectiveUsingFrustum((r32)PI/4, (r32)WIN_WIDTH/(r32)WIN_HEIGHT, 0.1f, 100.0f); 
@@ -480,7 +519,10 @@ int main()
 #endif        
         
         glfwSwapBuffers(Window);
-        
+
+        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glUniform1f(glGetUniformLocation(ShaderProgram, "TexWeight"), TexWeight);
 #if QUANTM_DEBUG
         r32 MSPerFrame = 1000.0f*SecondsElapsedForFrame;
         char OutBuffer[256];
