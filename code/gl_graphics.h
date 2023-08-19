@@ -1,18 +1,5 @@
 #ifndef GL_GRAPHICS_H
 #define GL_GRAPHICS_H
-typedef struct BufferO {
-  u32 VAO; // Vertex Array Object
-  u32 VBO; // Vertex Buffer Object
-  u32 EBO; // Element Buffer Object
-  u32* TextureO; // Texture Buffer Object
-} BufferO;
-
-typedef struct Texture2D {
-  i32 width;
-  i32 height;
-  i32 nrChannels;
-  unsigned char* data;
-} Texture2D;
 
 u32 CreateTriangle(r32 vertices[], i32 sz);
 void DrawTriangle(u32 VAO);
@@ -30,6 +17,7 @@ BufferO CreateRectangleTextured(r32 vertices[], i32 v_sz, u32 indices[], i32 i_s
 void AddTextureToRect(BufferO *BO, Texture2D *Texture, i32 FilteringOpt, i32 TextureUnit, i32 InternalFormat);
 void DrawRectangle(u32 VAO);
 
+BufferO CreateCube(r32 vertices[], i32 v_sz);
 BufferO CreateCubeTextured(r32 vertices[], i32 v_sz);
 void DrawCube(u32 VAO);
 

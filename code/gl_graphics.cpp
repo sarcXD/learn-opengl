@@ -78,6 +78,32 @@ void DrawCube(u32 VAO)
   glDrawArrays(GL_TRIANGLES, 0, 36);
 }
 
+BufferO CreateCube(r32 vertices[], i32 v_sz)
+{
+    u32 VAO;
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
+    // bind to setup triangle attributes
+    
+    u32 VBO;
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, v_sz, vertices, GL_STATIC_DRAW);
+    
+    // position attribute
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(r32), (void*)0);
+    glEnableVertexAttribArray(0);
+    
+    // unbind post setup
+    glBindVertexArray(0);
+    
+    BufferO BO = {0};
+    BO.VAO=VAO;
+    BO.VBO=VBO;
+    
+    return BO;
+}
+
 BufferO CreateCubeTextured(r32 vertices[], i32 v_sz)
 {
     /*
