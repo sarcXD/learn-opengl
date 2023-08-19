@@ -16,46 +16,48 @@ typedef struct Vec3 {
     r32 x;
     r32 y;
     r32 z;
+
+    Vec3 operator+(Vec3 S)
+    {
+      Vec3 R = {0};
+      R.x = x + S.x;
+      R.y = y + S.y;
+      R.z = z + S.z;
+      return R;
+    }
+
+    Vec3 operator+(r32 S)
+    {
+      Vec3 R = {0};
+      R.x = x + S;
+      R.y = y + S;
+      R.z = z + S;
+      return R;
+    }
+
+    Vec3 operator*(r32 S)
+    {
+      Vec3 R;
+      R.x = x * S;
+      R.y = y * S;
+      R.z = z * S;
+      
+      return R;
+    }
+
+    Vec3 operator/(r32 S)
+    {
+      Vec3 R;
+      R.x = x / S;
+      R.y = y / S;
+      R.z = z / S;
+      
+      return R;
+    }
 } Vec3;
 
+
 // *************************** Primarily for 3d things ********************************
-
-Vec3 ScalerAdd3(Vec3 Vec, r32 Scaler)
-{
-    Vec.x += Scaler;
-    Vec.y += Scaler;
-    Vec.z += Scaler;
-    
-    return Vec;
-}
-
-Vec3 ScalerMul3(Vec3 Vec, r32 Scaler)
-{
-    Vec.x *= Scaler;
-    Vec.y *= Scaler;
-    Vec.z *= Scaler;
-    
-    return Vec;
-}
-
-Vec3 ScalerDiv3(Vec3 Vec, r32 Scaler)
-{
-    Vec.x = Vec.x/Scaler;
-    Vec.y = Vec.y/Scaler;
-    Vec.z = Vec.y/Scaler;
-    
-    return Vec;
-}
-
-Vec3 AddVec3(Vec3 V, Vec3 K)
-{
-    Vec3 Res;
-    Res.x = V.x + K.x;
-    Res.y = V.y + K.y;
-    Res.z = V.z + K.z;
-    
-    return Res;
-}
 
 r32 LenVec3(Vec3 V)
 {
@@ -332,7 +334,7 @@ Mat4 CreatePerspectiveUsingFrustum(r32 fov, r32 aspect, r32 nearCam, r32 farCam)
 Mat4 CreateLookAtMat4(Vec3 CameraPos, Vec3 CameraTarget, Vec3 Up)
 {
   // deriving the respective camera vectors
-  Vec3 CameraDir = UnitVec3(AddVec3(CameraPos, ScalerMul3(CameraTarget, -1.0f)));
+  Vec3 CameraDir = UnitVec3((CameraPos + (CameraTarget * -1.0f)));
   Vec3 CameraRight = UnitVec3(CrossProductVec3(Up, CameraDir));
   Vec3 CameraUp = CrossProductVec3(CameraRight, CameraDir);
 
@@ -350,58 +352,5 @@ Mat4 CreateLookAtMat4(Vec3 CameraPos, Vec3 CameraTarget, Vec3 Up)
   Mat4 LookAt = Mul_Mat4Mat4(DirMat, TranslationMat); 
   return LookAt;
 }
-
-#if 0
-/*
-* @NOTE: hasty abstraction
- * This scales a 3d Vec, using 4d vectors
- * for matrix multiplication
- */
-Vec3 Scale3DVec(Vec3 S, Vec3 Factor)
-{
-    Vec4 S4 = Vec4{.x=S.x, .y=S.y, .z=S.z, .w=1};
-    Vec4 Factor4 = Vec4{.x=Factor.x, .y=Factor.y, .z=Factor.z, .w=1.0f};
-    Mat4 ScaleMatrix = CreateScaleMat(Factor4);
-    
-    Vec4 Res = Mul_Mat4Vec4(ScaleMatrix, S4);
-    Vec3 Res3 = Vec3{.x=Res.x,.y=Res.y,.z=Res.z};
-    
-    return Res3;
-}
-
-/*
- * @NOTE: hasty abstraction
- * This translates a 3d Vec, using 4d vectors
- * for matrix multiplication
- */
-Vec3 TranslateVec4(Vec3 S, Vec3 Offset)
-{
-    Vec4 S4 = Vec4{0};
-    S4.x = S.x; S4.y=S.y; S4.z=S.z; S4.w=1.0f;
-    
-    Vec4 Offset4 = Vec4{.x=Offset.x, .y=Offset.y, .z=Offset.z, .w=1.0f};
-    Mat4 TranslationMatrix = CreateTranslationMat(Offset4);
-    
-    Vec4 Res = Mul_Mat4Vec4(TranslationMatrix, S4);
-    Vec3 Res3 = Vec3{.x=Res.x,.y=Res.y,.z=Res.z};
-    
-    return Res3;
-}
-
-/*
-* @NOTE: hasty abstraction
- * Rotate a 3D Vector around a pivot dimension
- * Angle is in Theta
- */
-Vec3 Rotate3DVec(Vec3 S, r32 Theta, u8 Pivot)
-{
-    Mat4 RotMat = CreateRotationMat(Theta, Pivot);
-    Vec4 S4 = Vec4{.x=S.z, .y=S.y, .z=S.z, .w=1.0f};
-    Vec4 Res = Mul_Mat4Vec4(RotMat, S4);
-    Vec3 Res3 = Vec3{.x=Res.x,.y=Res.y,.z=Res.z};
-    
-    return Res3;
-}
-#endif
 
 #endif

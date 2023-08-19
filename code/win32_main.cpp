@@ -25,6 +25,7 @@ typedef  float    r32;
 typedef  double   r64;
 
 #include "math.h"
+#include "game_main.h"
 #include "gl_graphics.cpp"
 
 #define WIN_WIDTH 1280
@@ -36,27 +37,6 @@ typedef  double   r64;
  * 1. fix the frametime checking. Using glfwWallClock and QueryPerformanceFrequency and QueryPerformanceCounter
  *    - need to learn how to use QueryPerformanceFrequency and QueryPerformanceCounter
  */
-typedef struct {
-  r32 LastMouseX;
-  r32 LastMouseY;
-  r64 MouseX;
-  r64 MouseY;
-  r32 Sensitivity;
-} GameInput;
-
-typedef struct {
-  r32 MoveSpeed;
-  r32 PitchAngle;
-  r32 YawAngle;
-  Vec3 CameraPos;
-  Vec3 CameraFront;
-  Vec3 CameraUp;
-} GameCamera;
-
-typedef struct GameState {
-  GameCamera Camera;
-  GameInput Input;
-} GameState;
 
 internal i64 GlobalPerfCountFrequency;
 
@@ -142,10 +122,19 @@ int main()
         printf("ERROR: Failed to initialise glad\n");
         return -1;
     }
+
+    State.Memory.Size = GB((u64)2);
+    State.Memory.BaseAddress = (void *) VirtualAlloc(NULL, State.Memory.Size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    if (State.Memory.BaseAddress == NULL)
+    {
+      printf("ERROR: Failed to allocate game memory\n");
+      return -1;
+    }
     
     glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT);
     glfwSetFramebufferSizeCallback(Window, framebuffer_size_callback);
     glfwSetInputMode(Window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetCursorPos(Window, State.Input.LastMouseX, State.Input.LastMouseY);
     
     r32 _vertices[] = {
         // position             colors                  texture coords
@@ -399,21 +388,21 @@ int main()
         }
         if (glfwGetKey(Window, GLFW_KEY_W) == GLFW_PRESS)
         {
-          State.Camera.CameraPos = AddVec3(State.Camera.CameraPos, ScalerMul3(State.Camera.CameraFront, State.Camera.MoveSpeed));
+          State.Camera.CameraPos = State.Camera.CameraPos + (State.Camera.CameraFront * State.Camera.MoveSpeed);
         }
         if (glfwGetKey(Window, GLFW_KEY_S) == GLFW_PRESS)
         {
-          State.Camera.CameraPos = AddVec3(State.Camera.CameraPos, ScalerMul3(ScalerMul3(State.Camera.CameraFront, State.Camera.MoveSpeed), -1.0f));
+          State.Camera.CameraPos = State.Camera.CameraPos + ((State.Camera.CameraFront * State.Camera.MoveSpeed) * -1.0f);
         }
         if (glfwGetKey(Window, GLFW_KEY_A) == GLFW_PRESS)
         {
-          Vec3 HorizontalVec = ScalerMul3(UnitVec3(CrossProductVec3(State.Camera.CameraFront, State.Camera.CameraUp)), State.Camera.MoveSpeed);
-          State.Camera.CameraPos = AddVec3(State.Camera.CameraPos, ScalerMul3(HorizontalVec, -1.0f));
+          Vec3 HorizontalVec = (UnitVec3(CrossProductVec3(State.Camera.CameraFront, State.Camera.CameraUp)) * State.Camera.MoveSpeed);
+          State.Camera.CameraPos = (State.Camera.CameraPos + (HorizontalVec * -1.0f));
         }
         if (glfwGetKey(Window, GLFW_KEY_D) == GLFW_PRESS)
         {
-          Vec3 HorizontalVec = ScalerMul3(UnitVec3(CrossProductVec3(State.Camera.CameraFront, State.Camera.CameraUp)), State.Camera.MoveSpeed);
-          State.Camera.CameraPos = AddVec3(State.Camera.CameraPos, HorizontalVec);
+          Vec3 HorizontalVec = (UnitVec3(CrossProductVec3(State.Camera.CameraFront, State.Camera.CameraUp)) * State.Camera.MoveSpeed);
+          State.Camera.CameraPos = State.Camera.CameraPos + HorizontalVec;
         }
         glfwGetCursorPos(Window, &State.Input.MouseX, &State.Input.MouseY);
         
@@ -455,7 +444,7 @@ int main()
          * convention in OpenGL the +ve z-component points to the cameras -ve 
          * direction
          * */
-        Mat4 LookAt = CreateLookAtMat4(State.Camera.CameraPos, AddVec3(State.Camera.CameraPos, State.Camera.CameraFront), State.Camera.CameraUp);
+        Mat4 LookAt = CreateLookAtMat4(State.Camera.CameraPos, State.Camera.CameraPos + State.Camera.CameraFront, State.Camera.CameraUp);
         Mat4 View = LookAt;
         // projection matrix
         Mat4 Projection = CreatePerspectiveUsingFrustum((r32)PI/4, (r32)WIN_WIDTH/(r32)WIN_HEIGHT, 0.1f, 100.0f); 
@@ -524,6 +513,7 @@ int main()
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUniform1f(glGetUniformLocation(ShaderProgram, "TexWeight"), TexWeight);
+
 #if QUANTM_DEBUG
         r32 MSPerFrame = 1000.0f*SecondsElapsedForFrame;
         char OutBuffer[256];
@@ -535,6 +525,12 @@ int main()
         LastCounter = Win32GetWallClock();
         LastCycleCount = __rdtsc();
     };
+
+    if (VirtualFree((LPVOID)State.Memory.BaseAddress, 0, MEM_RELEASE) == 0)
+    {
+      // @todo: logging
+      printf("ERROR: failed to free game memory\n");
+    }
     
     glfwTerminate();
     return 0;
