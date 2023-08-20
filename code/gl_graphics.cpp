@@ -91,9 +91,13 @@ BufferO CreateCube(r32 vertices[], i32 v_sz)
     glBufferData(GL_ARRAY_BUFFER, v_sz, vertices, GL_STATIC_DRAW);
     
     // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3*sizeof(r32), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6*sizeof(r32), (void*)0);
     glEnableVertexAttribArray(0);
     
+    // normal attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6*sizeof(r32), (void*)(3*sizeof(r32)));
+    glEnableVertexAttribArray(1);
+
     // unbind post setup
     glBindVertexArray(0);
     
