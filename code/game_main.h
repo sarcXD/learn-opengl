@@ -22,11 +22,6 @@ typedef struct GameCamera {
   Vec3 CameraUp;
 } GameCamera;
 
-typedef struct GameMemory {
-  void* BaseAddress;
-  u64 Size;
-} GameMemory;
-
 typedef struct BufferO {
   u32 VAO; // Vertex Array Object
   u32 VBO; // Vertex Buffer Object
@@ -41,10 +36,17 @@ typedef struct Texture2D {
   unsigned char* data;
 } Texture2D;
 
+typedef struct GameMemory {
+  void *PermanentStorage;
+  u64 PermanentStorageSize;
+  DebugArena Arena;
+} GameMemory;
+
 typedef struct GameState {
   GameCamera Camera;
   GameInput Input;
   GameMemory Memory;
 } GameState;
+
 
 #endif

@@ -26,8 +26,6 @@ typedef  float    r32;
 typedef  double   r64;
 
 #include "math.h"
-#include "game_main.h"
-#include "gl_graphics.cpp"
 
 #define WIN_WIDTH 1280
 #define WIN_HEIGHT 1024
@@ -40,6 +38,28 @@ typedef  double   r64;
  */
 
 internal i64 GlobalPerfCountFrequency;
+
+i8 PlatformDebugReadFile(char *FileName, void *FileBuffer, u32 MaxSize, LPDWORD BytesRead)
+{
+  HANDLE FileHandle = CreateFileA(FileName, GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  if (FileHandle != INVALID_HANDLE_VALUE)
+  {
+    if (ReadFile(FileHandle, FileBuffer, MaxSize, BytesRead, NULL) != 0)
+    {
+      return 1;
+    }
+    else
+    {
+      // @todo: logging
+      return -2;
+    }
+  }
+  else
+  {
+    // @todo: logging
+    return -1;
+  }
+}
 
 void framebuffer_size_callback(GLFWwindow *window, i32 width, i32 height)
 {
@@ -66,6 +86,130 @@ Win32GetSecondsElapsed(LARGE_INTEGER Start, LARGE_INTEGER End)
     return(Result);
 }
 
+#ifndef DEFAULT_ALIGNMENT
+#define DEFAULT_ALIGNMENT (2*sizeof(void *))
+#endif
+
+typedef struct DebugArena {
+  u8 *Buffer;
+  size_t Size;
+  size_t CurrOffset;
+  size_t PrevOffset;
+} DebugArena;
+
+bool IsPowerOfTwo(uintptr_t x)
+{
+  return (x & (x-1)) == 0;
+}
+
+uintptr_t AlignForward(uintptr_t ptr, size_t align)
+{
+  uintptr_t p, a, modulo;
+
+  assert(IsPowerOfTwo(align));
+
+  p = ptr;
+  a = (uintptr_t)align;
+  modulo = p & (a-1);
+
+  if (modulo != 0)
+  {
+    p += a - modulo;
+  }
+  return p;
+}
+
+void *ArenaAllocAlign(DebugArena *Alloc, size_t Size, size_t Align)
+{
+  uintptr_t CurrOffset = (uintptr_t)Alloc->Buffer + (uintptr_t)Alloc->CurrOffset;
+  uintptr_t AlignedOffset = AlignForward(CurrOffset, Align);
+  AlignedOffset -= (uintptr_t)(Alloc->Buffer);
+
+  if (AlignedOffset + Size < Alloc->Size)
+  {
+    void *Ptr = &Alloc->Buffer[AlignedOffset];
+    Alloc->PrevOffset = AlignedOffset;
+    Alloc->CurrOffset = AlignedOffset + Size;
+
+    ZeroMemory(Ptr, Size);
+    return Ptr;
+  }
+  return NULL;
+}
+
+void ArenaInit(DebugArena *Alloc, void* BackingBuffer, size_t Size)
+{
+  Alloc->Buffer = (u8 *)BackingBuffer;
+  Alloc->Size = Size;
+  Alloc->CurrOffset = 0;
+  Alloc->PrevOffset = 0;
+}
+
+void *ArenaAlloc(DebugArena *Alloc, size_t Size)
+{
+  return ArenaAllocAlign(Alloc, Size, DEFAULT_ALIGNMENT);
+}
+
+void ArenaFree(DebugArena *Alloc, void *Ptr)
+{
+  // do nothing
+}
+
+void *ArenaResizeAlign(DebugArena *Alloc, void *OldMem, size_t OldSize,
+                        size_t NewSize, size_t Align)
+{
+  assert(IsPowerOfTwo(Align));
+  if (OldMem == NULL || OldSize == 0)
+  {
+    return ArenaAllocAlign(Alloc, NewSize, Align);
+  }
+  else if (Alloc->Buffer < OldMem && OldMem < Alloc->Buffer + Alloc->Size)
+  {
+    // check if old_memory falls on prev_offset
+    if (Alloc->Buffer + Alloc->PrevOffset == OldMem)
+    {
+      // re-use prev_offset and resize from there
+      size_t _CurrOffset = Alloc->CurrOffset;
+      Alloc->CurrOffset = Alloc->PrevOffset + NewSize;
+      if (NewSize > OldSize)
+      {
+        ZeroMemory(&Alloc->Buffer[_CurrOffset], NewSize - OldSize); 
+      }
+      return OldMem;
+    }
+    else
+    {
+      // generate new memory
+      // will have some fragmentation
+      void *NewMem = ArenaAllocAlign(Alloc, NewSize, Align);
+      size_t CopySize = OldSize < NewSize ? OldSize : NewSize;
+
+      // copy old memory to new memory location
+      CopyMemory(NewMem, OldMem, CopySize);
+      return NewMem;
+    }
+  }
+  else
+  {
+    assert(0 && "Memory is out of bounds of the buffer in this arena");
+    return NULL;
+  }
+}
+
+void *ArenaResize(DebugArena *Alloc, void *OldMem, size_t OldSize, size_t NewSize)
+{
+  return ArenaResizeAlign(Alloc, OldMem, OldSize, NewSize, DEFAULT_ALIGNMENT);
+}
+
+void ArenaFreeAll(DebugArena *Alloc)
+{
+  Alloc->CurrOffset = 0;
+  Alloc->PrevOffset = 0;
+}
+
+#include "game_main.h"
+#include "gl_graphics.cpp"
+
 void DrawModel(Mat4 Model, u32 ShaderProgram, u32 VAO)
 {
   const r32 model[16] = {Model.x0, Model.x1, Model.x2, Model.x3,
@@ -76,6 +220,7 @@ void DrawModel(Mat4 Model, u32 ShaderProgram, u32 VAO)
   glUniformMatrix4fv(glGetUniformLocation(ShaderProgram, "Model"), 1, GL_TRUE, model);
   DrawCube(VAO);
 }
+
 
 int main()
 {
@@ -124,19 +269,23 @@ int main()
         return -1;
     }
 
-    State.Memory.Size = GB((u64)2);
-    State.Memory.BaseAddress = (void *) VirtualAlloc(NULL, State.Memory.Size, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-    if (State.Memory.BaseAddress == NULL)
-    {
-      printf("ERROR: Failed to allocate game memory\n");
-      return -1;
-    }
-    
     glViewport(0, 0, WIN_WIDTH, WIN_HEIGHT);
     glfwSetFramebufferSizeCallback(Window, framebuffer_size_callback);
     glfwSetInputMode(Window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPos(Window, State.Input.LastMouseX, State.Input.LastMouseY);
     
+    DebugArena Arena = {0};
+    size_t PermanentStorageSize = GB((u64)2);
+    void *PermanentStorage = VirtualAlloc(NULL, PermanentStorageSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+    if (PermanentStorage == NULL)
+    {
+      printf("ERROR: Failed to allocate game memory\n");
+      return -1;
+    }
+    State.Memory.PermanentStorage = PermanentStorage;
+    State.Memory.PermanentStorageSize = PermanentStorageSize;
+
+    ArenaInit(&State.Memory.Arena, State.Memory.PermanentStorage, State.Memory.PermanentStorageSize);
 
    float vertices[] = {
         -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
@@ -196,22 +345,11 @@ int main()
 
     //stbi_set_flip_vertically_on_load(1);
 
-    const char *VertexShaderSource = 
-        "#version 330 core\n"
-        "layout (location=0) in vec3 aPos;\n"
-        "layout (location=1) in vec3 aNormal;\n"
-        "uniform mat4 Model;\n"
-        "uniform mat4 View;\n"
-        "uniform mat4 Projection;\n"
-        "out vec3 Normal;\n"
-        "out vec3 FragPos;\n"
-        "void main() {\n"
-        "gl_Position = Projection*View*Model*vec4(aPos, 1.0f);\n"
-        "FragPos = vec3(Model*vec4(aPos, 1.0f));\n"
-        "// @note: high performance penalty for this;\n"
-        "// do on the cpu;\n"
-        "Normal = mat3(transpose(inverse(Model))) * aNormal;\n"
-        "}\0";
+    // @todo: set exact file sizes later on
+    u64 MaxFileSize = MB(1);
+    const char *ObjectVSProg = (const char *)ArenaAlloc(&State.Memory.Arena, MaxFileSize);
+    DWORD BytesRead = 0;
+    i8 OpRes = PlatformDebugReadFile("../code/shaders/lighting/object.vs", (void *)ObjectVSProg, MaxFileSize, &BytesRead);
     
     /*
      * understanding the positions:
@@ -219,64 +357,31 @@ int main()
      *   0,-.5 - bottom center
      *  .5, .5 - top right
      */
-    u32 VertexShader = CreateVertexShader(VertexShaderSource);
+    u32 ObjectVS = CreateVertexShader(ObjectVSProg);
 
-    const char *FragmentShaderSource = 
-        "#version 330 core\n"
-        "in vec3 Normal;\n"
-        "in vec3 FragPos;\n"
-        "uniform vec3 VertexColor;\n"
-        "uniform vec3 LightColor;\n"
-        "uniform vec3 LightPos;\n"
-        "uniform vec3 ViewPos;\n"
-        "out vec4 FragColor;\n"
-        "void main() {\n"
-        "// ambient\n"
-        "float AmbientStrength = 0.1;\n"
-        "vec3 AmbientLight = AmbientStrength * LightColor;\n"
-        "// diffuse\n"
-        "vec3 norm = normalize(Normal);\n"
-        "vec3 LightDir = normalize(LightPos - FragPos);\n"
-        "float DiffuseVal = max(dot(norm, LightDir), 0.0);\n"
-        "vec3 DiffuseLight = DiffuseVal*LightColor;\n"
-        "//// specular\n"
-        "float SpecularStrength = 0.5;\n"
-        "vec3 ViewDir = normalize(ViewPos - FragPos);\n"
-        "vec3 ReflectDir = reflect(-LightDir, norm);\n"
-        "float Spec = pow(max(dot(ViewDir, ReflectDir), 0.0), 32);\n"
-        "vec3 SpecularLight = SpecularStrength * Spec * LightColor;\n"
-        "// Color\n"
-        "//FragColor = vec4((AmbientLight + DiffuseLight ) * VertexColor, 1.0);\n"
-        "vec3 Result = (AmbientLight + DiffuseLight + SpecularLight)*VertexColor;\n"
-        "FragColor = vec4(Result, 1.0);\n"
-        "}\0";
+    const char *ObjectFSProg = (const char *)ArenaAlloc(&State.Memory.Arena, MaxFileSize);
+    OpRes = PlatformDebugReadFile("../code/shaders/lighting/object.fs", (void *)ObjectFSProg, MaxFileSize, &BytesRead);
 
-    u32 FragmentShader = CreateFragmentShader(FragmentShaderSource);
-    u32 ShaderProgram = CreateShaderProgram(VertexShader, FragmentShader);
+    u32 ObjectFS = CreateFragmentShader(ObjectFSProg);
+    u32 ObjectSP = CreateShaderProgram(ObjectVS, ObjectFS);
 
-    const char *LightVertexShader = 
-        "#version 330 core\n"
-        "layout (location=0) in vec3 aPos;\n"
-        "uniform mat4 Model;\n"
-        "uniform mat4 View;\n"
-        "uniform mat4 Projection;\n"
-        "void main() {\n"
-        "gl_Position = Projection*View*Model*vec4(aPos, 1.0f);\n"
-        "}\0";
+    const char *LightVSProg = (const char *)ArenaAlloc(&State.Memory.Arena, MaxFileSize);
+    OpRes = PlatformDebugReadFile("../code/shaders/lighting/light_source.vs", (void *)LightVSProg, MaxFileSize, &BytesRead);
     
-    u32 LightVS = CreateVertexShader(LightVertexShader);
+    u32 LightVS = CreateVertexShader(LightVSProg);
 
-    const char *LightFragmentShader = 
-        "#version 330 core\n"
-        "uniform vec3 LightColor;\n"
-        "out vec4 FragColor;\n"
-        "void main() {\n"
-        "FragColor = vec4(LightColor, 1.0);\n"
-        "}\0";
+    const char *LightFSProg = (const char *)ArenaAlloc(&State.Memory.Arena, MaxFileSize);
+    OpRes = PlatformDebugReadFile("../code/shaders/lighting/light_source.fs", (void *)LightFSProg, MaxFileSize, &BytesRead); 
 
-    u32 LightFS = CreateFragmentShader(LightFragmentShader);
+    u32 LightFS = CreateFragmentShader(LightFSProg);
 
-    u32 LightSp = CreateShaderProgram(LightVS, LightFS);
+    u32 LightSP = CreateShaderProgram(LightVS, LightFS);
+
+    ObjectVSProg = NULL;
+    ObjectFSProg = NULL;
+    LightVSProg = NULL;
+    LightFSProg = NULL;
+    ArenaFreeAll(&State.Memory.Arena); // file memory can be freed
     
     // shader program using color attributes
     Vec3 ObjectColor = {1.0f, 0.5f, 0.31f};
@@ -303,9 +408,9 @@ int main()
     State.Camera.PitchAngle = 0;
     State.Camera.YawAngle = -90.0f;
 
-    glUseProgram(ShaderProgram);
-    glUniform3f(glGetUniformLocation(ShaderProgram, "VertexColor"), ObjectColor.x, ObjectColor.y, ObjectColor.z);
-    glUniform3f(glGetUniformLocation(ShaderProgram, "LightColor"), LightColor.x, LightColor.y, LightColor.z);
+    glUseProgram(ObjectSP);
+    glUniform3f(glGetUniformLocation(ObjectSP, "VertexColor"), ObjectColor.x, ObjectColor.y, ObjectColor.z);
+    glUniform3f(glGetUniformLocation(ObjectSP, "LightColor"), LightColor.x, LightColor.y, LightColor.z);
     
     while (!glfwWindowShouldClose(Window)) {
         LARGE_INTEGER WorkCounter = Win32GetWallClock();
@@ -367,7 +472,7 @@ int main()
         //Tx1 = Mul_Mat4Mat4(Tx1, Ry);
         //Mat4 Model1 = IdentityMat();
         //Model1 = Mul_Mat4Mat4(Tx1, Model);
-        //DrawModel(Model1, ShaderProgram, BO_Container);
+        //DrawModel(Model1, ObjectSP, BO_Container);
         
         // view matrix
         // @note: in normalised device coordinates, OPENGL switches the handedness
@@ -416,31 +521,31 @@ int main()
 
         glEnable(GL_DEPTH_TEST);
 
-        glUseProgram(LightSp);
-        glUniform3f(glGetUniformLocation(ShaderProgram, "LightColor"), LightColor.x, LightColor.y, LightColor.z);
-        glUniform3f(glGetUniformLocation(ShaderProgram, "LightPos"), LightPos.x, LightPos.y, LightPos.z);
+        glUseProgram(LightSP);
+        glUniform3f(glGetUniformLocation(ObjectSP, "LightColor"), LightColor.x, LightColor.y, LightColor.z);
+        glUniform3f(glGetUniformLocation(ObjectSP, "LightPos"), LightPos.x, LightPos.y, LightPos.z);
 
-        glUseProgram(ShaderProgram);
-        glUniform3f(glGetUniformLocation(ShaderProgram, "ViewPos"), State.Camera.CameraPos.x, State.Camera.CameraPos.y, State.Camera.CameraPos.z);
-        glUniformMatrix4fv(glGetUniformLocation(ShaderProgram, "View"), 1, GL_TRUE, view);
-        glUniformMatrix4fv(glGetUniformLocation(ShaderProgram, "Projection"), 1, GL_TRUE, projection);
-        glUniform3f(glGetUniformLocation(ShaderProgram, "LightPos"), LightPos.x, LightPos.y, LightPos.z);
+        glUseProgram(ObjectSP);
+        glUniform3f(glGetUniformLocation(ObjectSP, "ViewPos"), State.Camera.CameraPos.x, State.Camera.CameraPos.y, State.Camera.CameraPos.z);
+        glUniformMatrix4fv(glGetUniformLocation(ObjectSP, "View"), 1, GL_TRUE, view);
+        glUniformMatrix4fv(glGetUniformLocation(ObjectSP, "Projection"), 1, GL_TRUE, projection);
+        glUniform3f(glGetUniformLocation(ObjectSP, "LightPos"), LightPos.x, LightPos.y, LightPos.z);
 
         // model 2
         Mat4 Tx = CreateTranslationMat(InitVec4(3.0f, 1.0f, -3.0f, 1));
         Mat4 Model = IdentityMat();
         Model = Mul_Mat4Mat4(Tx, Model);
-        DrawModel(Model, ShaderProgram, BO_Container.VAO);
+        DrawModel(Model, ObjectSP, BO_Container.VAO);
 
-        glUseProgram(LightSp);
-        glUniformMatrix4fv(glGetUniformLocation(LightSp, "View"), 1, GL_TRUE, view);
-        glUniformMatrix4fv(glGetUniformLocation(LightSp, "Projection"), 1, GL_TRUE, projection);
+        glUseProgram(LightSP);
+        glUniformMatrix4fv(glGetUniformLocation(LightSP, "View"), 1, GL_TRUE, view);
+        glUniformMatrix4fv(glGetUniformLocation(LightSP, "Projection"), 1, GL_TRUE, projection);
         // light model
         Mat4 Model1 = IdentityMat();
         Mat4 ScaledModel = Mul_Mat4Mat4(CreateScaleMat(InitVec4(0.2f, 0.2f, 0.2f, 1.0f)), Model1);
         Mat4 Tx1 = CreateTranslationMat(InitVec4(LightPos.x, LightPos.y, LightPos.z, 1.0f));
         ScaledModel = Mul_Mat4Mat4(Tx1, ScaledModel);
-        DrawModel(ScaledModel, LightSp, LightVAO);
+        DrawModel(ScaledModel, LightSP, LightVAO);
 
 
         
@@ -472,7 +577,7 @@ int main()
             T.z0, T.z1, T.z2, T.z3,
             T.w0, T.w1, T.w2, T.w3};
         
-        glUniformMatrix4fv(glGetUniformLocation(ShaderProgram, "Transform"), 1, GL_TRUE, ScaleArr);
+        glUniformMatrix4fv(glGetUniformLocation(ObjectSP, "Transform"), 1, GL_TRUE, ScaleArr);
         DrawRectangle(BO_Container.VAO);
 #endif        
         
@@ -493,12 +598,7 @@ int main()
         LastCycleCount = __rdtsc();
     };
 
-    if (VirtualFree((LPVOID)State.Memory.BaseAddress, 0, MEM_RELEASE) == 0)
-    {
-      // @todo: logging
-      printf("ERROR: failed to free game memory\n");
-    }
-    
+    VirtualFree(PermanentStorage, 0, MEM_RELEASE);
     glfwTerminate();
     return 0;
 }
