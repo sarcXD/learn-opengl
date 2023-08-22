@@ -26,7 +26,7 @@ typedef struct BufferO {
   u32 VAO; // Vertex Array Object
   u32 VBO; // Vertex Buffer Object
   u32 EBO; // Element Buffer Object
-  u32* TextureO; // Texture Buffer Object
+  u32* TexO; // Texture Buffer Object
 } BufferO;
 
 typedef struct Texture2D {

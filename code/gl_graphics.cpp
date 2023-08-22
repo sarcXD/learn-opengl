@@ -125,11 +125,15 @@ BufferO CreateCubeTextured(r32 vertices[], i32 v_sz)
     glBufferData(GL_ARRAY_BUFFER, v_sz, vertices, GL_STATIC_DRAW);
     
     // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5*sizeof(r32), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8*sizeof(r32), (void*)0);
     glEnableVertexAttribArray(0);
     
+    // normal attribute
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8*sizeof(r32), (void*)(3*sizeof(r32)));
+    glEnableVertexAttribArray(1);
+
     // texture attribute
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 5*sizeof(r32), (void*)(3*sizeof(r32)));
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8*sizeof(r32), (void*)(6*sizeof(r32)));
     glEnableVertexAttribArray(2);
     
     // unbind post setup
@@ -211,7 +215,7 @@ void AddTextureToRect(BufferO *BO, Texture2D *Texture, i32 FilteringOpt, i32 Tex
     
     glTexImage2D(GL_TEXTURE_2D, 0, InternalFormat, Texture->width, Texture->height, 0, InternalFormat, GL_UNSIGNED_BYTE, Texture->data);
     glGenerateMipmap(GL_TEXTURE_2D);
-    BO->TextureO[TextureUnit] = TextureO;
+    BO->TexO[TextureUnit] = TextureO;
     
     glBindVertexArray(0);
 }

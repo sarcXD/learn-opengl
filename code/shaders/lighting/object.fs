@@ -1,7 +1,6 @@
 #version 330 core
 struct Material {
-  vec3 Ambient;
-  vec3 Diffuse;
+  sampler2D Diffuse;
   vec3 Specular;
   float Shininess;
 };
@@ -16,6 +15,7 @@ struct Light {
 
 in vec3 Normal;
 in vec3 FragPos;
+in vec2 TexCoords;
 
 uniform vec3 ViewPos;
 uniform Material material;
@@ -25,13 +25,13 @@ out vec4 FragColor;
 
 void main() {
   // ambient
-  vec3 AmbientLight = light.Ambient * material.Ambient ;
+  vec3 AmbientLight = light.Ambient * vec3(texture(material.Diffuse, TexCoords));
 
   // diffuse
   vec3 norm = normalize(Normal);
   vec3 LightDir = normalize(light.Position - FragPos);
   float DiffuseVal = max(dot(norm, LightDir), 0.0);
-  vec3 DiffuseLight = light.Diffuse * (DiffuseVal * material.Diffuse);
+  vec3 DiffuseLight = light.Diffuse * DiffuseVal * vec3(texture(material.Diffuse, TexCoords));
   
   // specular
   vec3 ViewDir = normalize(ViewPos - FragPos);
