@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <direct.h>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
@@ -35,6 +36,7 @@ typedef  double   r64;
  * @todo:
  * 1. fix the frametime checking. Using glfwWallClock and QueryPerformanceFrequency and QueryPerformanceCounter
  *    - need to learn how to use QueryPerformanceFrequency and QueryPerformanceCounter
+ * 2. Add cwd paths for the exe, so no matter where the executable is called from, it can read and open files correctly
  */
 
 internal i64 GlobalPerfCountFrequency;
@@ -274,7 +276,6 @@ int main()
     glfwSetInputMode(Window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPos(Window, State.Input.LastMouseX, State.Input.LastMouseY);
     
-    DebugArena Arena = {0};
     size_t PermanentStorageSize = GB((u64)2);
     void *PermanentStorage = VirtualAlloc(NULL, PermanentStorageSize, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
     if (PermanentStorage == NULL)
@@ -349,7 +350,7 @@ int main()
     u64 MaxFileSize = MB(1);
     const char *ObjectVSProg = (const char *)ArenaAlloc(&State.Memory.Arena, MaxFileSize);
     DWORD BytesRead = 0;
-    i8 OpRes = PlatformDebugReadFile("../code/shaders/lighting/object.vs", (void *)ObjectVSProg, MaxFileSize, &BytesRead);
+    i8 OpRes = PlatformDebugReadFile("./code/shaders/lighting/object.vs", (void *)ObjectVSProg, MaxFileSize, &BytesRead);
     
     /*
      * understanding the positions:
@@ -360,18 +361,18 @@ int main()
     u32 ObjectVS = CreateVertexShader(ObjectVSProg);
 
     const char *ObjectFSProg = (const char *)ArenaAlloc(&State.Memory.Arena, MaxFileSize);
-    OpRes = PlatformDebugReadFile("../code/shaders/lighting/object.fs", (void *)ObjectFSProg, MaxFileSize, &BytesRead);
+    OpRes = PlatformDebugReadFile("./code/shaders/lighting/object.fs", (void *)ObjectFSProg, MaxFileSize, &BytesRead);
 
     u32 ObjectFS = CreateFragmentShader(ObjectFSProg);
     u32 ObjectSP = CreateShaderProgram(ObjectVS, ObjectFS);
 
     const char *LightVSProg = (const char *)ArenaAlloc(&State.Memory.Arena, MaxFileSize);
-    OpRes = PlatformDebugReadFile("../code/shaders/lighting/light_source.vs", (void *)LightVSProg, MaxFileSize, &BytesRead);
+    OpRes = PlatformDebugReadFile("./code/shaders/lighting/light_source.vs", (void *)LightVSProg, MaxFileSize, &BytesRead);
     
     u32 LightVS = CreateVertexShader(LightVSProg);
 
     const char *LightFSProg = (const char *)ArenaAlloc(&State.Memory.Arena, MaxFileSize);
-    OpRes = PlatformDebugReadFile("../code/shaders/lighting/light_source.fs", (void *)LightFSProg, MaxFileSize, &BytesRead); 
+    OpRes = PlatformDebugReadFile("./code/shaders/lighting/light_source.fs", (void *)LightFSProg, MaxFileSize, &BytesRead); 
 
     u32 LightFS = CreateFragmentShader(LightFSProg);
 
@@ -384,7 +385,6 @@ int main()
     ArenaFreeAll(&State.Memory.Arena); // file memory can be freed
     
     // shader program using color attributes
-    Vec3 ObjectColor = {1.0f, 0.5f, 0.31f};
     Vec3 LightColor = {1.0f, 1.0f, 1.0f};
     Vec3 LightPos = {1.8f, 1.0f, 0.0f};
 
@@ -409,8 +409,18 @@ int main()
     State.Camera.YawAngle = -90.0f;
 
     glUseProgram(ObjectSP);
-    glUniform3f(glGetUniformLocation(ObjectSP, "VertexColor"), ObjectColor.x, ObjectColor.y, ObjectColor.z);
-    glUniform3f(glGetUniformLocation(ObjectSP, "LightColor"), LightColor.x, LightColor.y, LightColor.z);
+    glUniform3f(glGetUniformLocation(ObjectSP, "material.Ambient"), 0.05f,0.05f,0.05f);
+    glUniform3f(glGetUniformLocation(ObjectSP, "material.Diffuse"), 0.5f,0.5f,0.5f);
+    glUniform3f(glGetUniformLocation(ObjectSP, "material.Specular"), 0.7f,0.7f,0.7f);
+    glUniform1f(glGetUniformLocation(ObjectSP, "material.Shininess"), 32.0f*0.078125f);
+    glUniform3f(glGetUniformLocation(ObjectSP, "light.Position"), LightPos.x, LightPos.y, LightPos.z);
+    glUniform3f(glGetUniformLocation(ObjectSP, "light.Ambient"), 1.0f, 1.0f, 1.0f);
+    glUniform3f(glGetUniformLocation(ObjectSP, "light.Diffuse"), 1.0f, 1.0f, 1.0f);
+    glUniform3f(glGetUniformLocation(ObjectSP, "light.Specular"), 1.0f, 1.0f, 1.0f);
+
+    glUseProgram(LightSP);
+    glUniform3f(glGetUniformLocation(LightSP, "LightPos"), LightPos.x, LightPos.y, LightPos.z);
+    glUniform3f(glGetUniformLocation(LightSP, "LightColor"), 1.0f, 1.0f, 1.0f);
     
     while (!glfwWindowShouldClose(Window)) {
         LARGE_INTEGER WorkCounter = Win32GetWallClock();
@@ -497,7 +507,7 @@ int main()
         Dir.x = cos(DegToRad(State.Camera.YawAngle)) * cos(DegToRad(State.Camera.PitchAngle));
         Dir.z = sin(DegToRad(State.Camera.YawAngle)) * cos(DegToRad(State.Camera.PitchAngle));
         State.Camera.CameraFront = UnitVec3(Dir);
-
+        
         /*
          * @note: camera direction is calculated by: CameraPos - CameraTarget
          * this makes it point in the direction of the cameras +ve axis
@@ -521,15 +531,10 @@ int main()
 
         glEnable(GL_DEPTH_TEST);
 
-        glUseProgram(LightSP);
-        glUniform3f(glGetUniformLocation(ObjectSP, "LightColor"), LightColor.x, LightColor.y, LightColor.z);
-        glUniform3f(glGetUniformLocation(ObjectSP, "LightPos"), LightPos.x, LightPos.y, LightPos.z);
-
         glUseProgram(ObjectSP);
         glUniform3f(glGetUniformLocation(ObjectSP, "ViewPos"), State.Camera.CameraPos.x, State.Camera.CameraPos.y, State.Camera.CameraPos.z);
         glUniformMatrix4fv(glGetUniformLocation(ObjectSP, "View"), 1, GL_TRUE, view);
         glUniformMatrix4fv(glGetUniformLocation(ObjectSP, "Projection"), 1, GL_TRUE, projection);
-        glUniform3f(glGetUniformLocation(ObjectSP, "LightPos"), LightPos.x, LightPos.y, LightPos.z);
 
         // model 2
         Mat4 Tx = CreateTranslationMat(InitVec4(3.0f, 1.0f, -3.0f, 1));
