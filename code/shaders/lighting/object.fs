@@ -1,7 +1,8 @@
 #version 330 core
 struct Material {
   sampler2D Diffuse;
-  vec3 Specular;
+  sampler2D Specular;
+  sampler2D Emission;
   float Shininess;
 };
 
@@ -37,10 +38,14 @@ void main() {
   vec3 ViewDir = normalize(ViewPos - FragPos);
   vec3 ReflectDir = reflect(-LightDir, norm);
   float Spec = pow(max(dot(ViewDir, ReflectDir), 0.0), material.Shininess);
-  vec3 SpecularLight =  light.Specular * (Spec * material.Specular );
+  vec3 SpecularLight =  light.Specular * Spec * vec3(texture(material.Specular, TexCoords));
+
+  // emission map
+  vec3 Emission = vec3(texture(material.Emission, TexCoords));
+  vec3 Mapping = step(vec3(1.0), vec3(1.0)-texture(material.Specular, TexCoords).rgb);
 
   // Color
-  vec3 Result = AmbientLight + DiffuseLight + SpecularLight;
+  vec3 Result = AmbientLight + DiffuseLight + SpecularLight + (Mapping*Emission);
   FragColor = vec4(Result, 1.0);
 }
 

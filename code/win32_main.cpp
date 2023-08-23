@@ -415,6 +415,59 @@ int main()
       return -1;
     }
 
+    Tex.data = stbi_load("./assets/wood-container-specular-map.png", &Tex.width, &Tex.height, &Tex.nrChannels, 0);
+    if (Tex.data != NULL)
+    {
+      glBindVertexArray(BO_Container.VAO);
+
+      glGenTextures(1, &tex_obj);
+      glActiveTexture(GL_TEXTURE1);
+      glBindTexture(GL_TEXTURE_2D, tex_obj);
+
+      // defining texture wrappin options
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Tex.width, Tex.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, Tex.data);
+      glGenerateMipmap(GL_TEXTURE_2D);
+
+      glBindVertexArray(0);
+      stbi_image_free(Tex.data);
+    }
+    else
+    {
+      printf("Error: Failed to load specular map");
+      return -1;
+    }
+
+    Tex.data = stbi_load("./assets/emission-map.jpg", &Tex.width, &Tex.height, &Tex.nrChannels, 0);
+    if (Tex.data != NULL)
+    {
+      glBindVertexArray(BO_Container.VAO);
+
+      glGenTextures(1, &tex_obj);
+      glActiveTexture(GL_TEXTURE2);
+      glBindTexture(GL_TEXTURE_2D, tex_obj);
+
+      // defining texture wrappin options
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Tex.width, Tex.height, 0, GL_RGB, GL_UNSIGNED_BYTE, Tex.data);
+      glGenerateMipmap(GL_TEXTURE_2D);
+
+      glBindVertexArray(0);
+      stbi_image_free(Tex.data);
+    }
+    else
+    {
+      printf("Error: Failed to load emission map");
+      return -1;
+    }
 
     // shader program using color attributes
     Vec3 LightColor = {1.0f, 1.0f, 1.0f};
@@ -442,7 +495,8 @@ int main()
 
     glUseProgram(ObjectSP);
     glUniform1i(glGetUniformLocation(ObjectSP, "material.Diffuse"), 0);
-    glUniform3f(glGetUniformLocation(ObjectSP, "material.Specular"), 0.5f,0.5f,0.5f);
+    glUniform1i(glGetUniformLocation(ObjectSP, "material.Specular"), 1);
+    glUniform1i(glGetUniformLocation(ObjectSP, "material.Emission"), 2);
     glUniform1f(glGetUniformLocation(ObjectSP, "material.Shininess"), 32.0f);
     glUniform3f(glGetUniformLocation(ObjectSP, "light.Position"), LightPos.x, LightPos.y, LightPos.z);
     glUniform3f(glGetUniformLocation(ObjectSP, "light.Ambient"), 1.0f, 1.0f, 1.0f);
