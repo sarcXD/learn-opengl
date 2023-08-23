@@ -190,34 +190,40 @@ BufferO CreateRectangleTextured(r32 vertices[], i32 v_sz, u32 indices[], i32 i_s
     return BO;
 }
 
-void AddTextureToRect(BufferO *BO, Texture2D *Texture, i32 FilteringOpt, i32 TextureUnit, i32 InternalFormat)
+/*
+ * Defines texture loaded from a Texture2D object into opengl. 
+ * Texture wrapping and filtering options are defined. Should they need be altered
+ * define a new function or change them inside. It depends on the art style, but 
+ * I think it should remain the same for everything
+ *
+ * Parameters:
+ * 1. Texture2D Tex: Contains information about the loaded texture
+ * 2. u32 VAO: Contains the VertexArrayObject index for the VAO to attach the texture to
+ * 3. u32 *TexO: Pointer to a TextureObject. This needs to be adtivated by glActiveTexture
+ * in order to define texture properties
+ * 4. u32 Ind: The index of this texture. This is the unique identifier that allows us to let
+ * opengl know which texture we are talking about when assigning data to it. So far I have used it
+ * to let sampler2D know which texture I need to attach
+ */
+void DefineGlTextures(Texture2D Tex, u32 VAO, u32 *TexO, u32 Ind)
 {
-    glBindVertexArray(BO->VAO);
-    
-    u32 TextureO;
-    glGenTextures(1, &TextureO);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, TextureO);
-    // defining texture wrapping options
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
-    // defining texture filtering options with mipmaps
-    /* List of texture filtering options with mipmaps"
-     * GL_LINEAR_MIPMAP_LINEAR
-     * GL_LINEAR_MIPMAP_NEAREST
-     * GL_NEAREST_MIPMAP_LINEAR
-     * GL_NEAREST_MIPMAP_NEAREST
-     *
-     * TODO: understand how all the different options work
-     */
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, FilteringOpt);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    
-    glTexImage2D(GL_TEXTURE_2D, 0, InternalFormat, Texture->width, Texture->height, 0, InternalFormat, GL_UNSIGNED_BYTE, Texture->data);
-    glGenerateMipmap(GL_TEXTURE_2D);
-    BO->TexO[TextureUnit] = TextureO;
-    
-    glBindVertexArray(0);
+  glBindVertexArray(VAO);
+
+  glGenTextures(1, TexO);
+  glActiveTexture(GL_TEXTURE0 + Ind);
+  glBindTexture(GL_TEXTURE_2D, *TexO);
+
+  // defining texture wrapping options
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Tex.width, Tex.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, Tex.data);
+  glGenerateMipmap(GL_TEXTURE_2D);
+
+  glBindVertexArray(0);
 }
 
 u32 CreateVertexShader(const char *VertexShaderSource)

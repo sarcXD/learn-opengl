@@ -21,6 +21,7 @@ BufferO CreateCube(r32 vertices[], i32 v_sz);
 BufferO CreateCubeTextured(r32 vertices[], i32 v_sz);
 void DrawCube(u32 VAO);
 
+void DefineGlTextures(Texture2D Tex, u32 VAO, u32 *TexO, u32 Ind);
 u32 CreateVertexShader(const char *VertexShaderSource);
 u32 CreateFragmentShader(const char *FragmentShaderSource);
 u32 CreateShaderProgram(unsigned int VertexShader, unsigned int FragmentShader);

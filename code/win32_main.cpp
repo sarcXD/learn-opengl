@@ -386,27 +386,10 @@ int main()
     u32 tex_obj;
     BO_Container.TexO = &tex_obj;
     Texture2D Tex = {0};
-    int x,y,n;
     Tex.data = stbi_load("./assets/wood-container.png", &Tex.width, &Tex.height, &Tex.nrChannels, 0);
     if (Tex.data != NULL)
     {
-      glBindVertexArray(BO_Container.VAO);
-
-      glGenTextures(1, &tex_obj);
-      glActiveTexture(GL_TEXTURE0);
-      glBindTexture(GL_TEXTURE_2D, tex_obj);
-      
-      // defining texture wrapping options
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Tex.width, Tex.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, Tex.data);
-      glGenerateMipmap(GL_TEXTURE_2D);
-
-      glBindVertexArray(0);
+      DefineGlTextures(Tex, BO_Container.VAO, &tex_obj, 0);
       stbi_image_free(Tex.data);
     }
     else
@@ -418,54 +401,12 @@ int main()
     Tex.data = stbi_load("./assets/wood-container-specular-map.png", &Tex.width, &Tex.height, &Tex.nrChannels, 0);
     if (Tex.data != NULL)
     {
-      glBindVertexArray(BO_Container.VAO);
-
-      glGenTextures(1, &tex_obj);
-      glActiveTexture(GL_TEXTURE1);
-      glBindTexture(GL_TEXTURE_2D, tex_obj);
-
-      // defining texture wrappin options
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, Tex.width, Tex.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, Tex.data);
-      glGenerateMipmap(GL_TEXTURE_2D);
-
-      glBindVertexArray(0);
+      DefineGlTextures(Tex, BO_Container.VAO, &tex_obj, 1);
       stbi_image_free(Tex.data);
     }
     else
     {
       printf("Error: Failed to load specular map");
-      return -1;
-    }
-
-    Tex.data = stbi_load("./assets/emission-map.jpg", &Tex.width, &Tex.height, &Tex.nrChannels, 0);
-    if (Tex.data != NULL)
-    {
-      glBindVertexArray(BO_Container.VAO);
-
-      glGenTextures(1, &tex_obj);
-      glActiveTexture(GL_TEXTURE2);
-      glBindTexture(GL_TEXTURE_2D, tex_obj);
-
-      // defining texture wrappin options
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, Tex.width, Tex.height, 0, GL_RGB, GL_UNSIGNED_BYTE, Tex.data);
-      glGenerateMipmap(GL_TEXTURE_2D);
-
-      glBindVertexArray(0);
-      stbi_image_free(Tex.data);
-    }
-    else
-    {
-      printf("Error: Failed to load emission map");
       return -1;
     }
 
@@ -496,7 +437,6 @@ int main()
     glUseProgram(ObjectSP);
     glUniform1i(glGetUniformLocation(ObjectSP, "material.Diffuse"), 0);
     glUniform1i(glGetUniformLocation(ObjectSP, "material.Specular"), 1);
-    glUniform1i(glGetUniformLocation(ObjectSP, "material.Emission"), 2);
     glUniform1f(glGetUniformLocation(ObjectSP, "material.Shininess"), 32.0f);
     glUniform3f(glGetUniformLocation(ObjectSP, "light.Position"), LightPos.x, LightPos.y, LightPos.z);
     glUniform3f(glGetUniformLocation(ObjectSP, "light.Ambient"), 1.0f, 1.0f, 1.0f);

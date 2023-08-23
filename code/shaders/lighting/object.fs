@@ -12,6 +12,7 @@ struct Light {
   vec3 Specular;
 
   vec3 Position;
+  vec3 Direction;
 };
 
 in vec3 Normal;
@@ -40,12 +41,8 @@ void main() {
   float Spec = pow(max(dot(ViewDir, ReflectDir), 0.0), material.Shininess);
   vec3 SpecularLight =  light.Specular * Spec * vec3(texture(material.Specular, TexCoords));
 
-  // emission map
-  vec3 Emission = vec3(texture(material.Emission, TexCoords));
-  vec3 Mapping = step(vec3(1.0), vec3(1.0)-texture(material.Specular, TexCoords).rgb);
-
   // Color
-  vec3 Result = AmbientLight + DiffuseLight + SpecularLight + (Mapping*Emission);
+  vec3 Result = AmbientLight + DiffuseLight + SpecularLight;
   FragColor = vec4(Result, 1.0);
 }
 
