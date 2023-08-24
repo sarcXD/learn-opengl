@@ -435,17 +435,17 @@ int main()
     State.Camera.YawAngle = -90.0f;
 
     glUseProgram(ObjectSP);
-    glUniform1i(glGetUniformLocation(ObjectSP, "material.Diffuse"), 0);
-    glUniform1i(glGetUniformLocation(ObjectSP, "material.Specular"), 1);
-    glUniform1f(glGetUniformLocation(ObjectSP, "material.Shininess"), 32.0f);
-    glUniform3f(glGetUniformLocation(ObjectSP, "light.Position"), LightPos.x, LightPos.y, LightPos.z);
-    glUniform3f(glGetUniformLocation(ObjectSP, "light.Ambient"), 1.0f, 1.0f, 1.0f);
-    glUniform3f(glGetUniformLocation(ObjectSP, "light.Diffuse"), 1.0f, 1.0f, 1.0f);
-    glUniform3f(glGetUniformLocation(ObjectSP, "light.Specular"), 1.0f, 1.0f, 1.0f);
+    LoadUniformInt(ObjectSP, "material.Diffuse", 0);
+    LoadUniformInt(ObjectSP, "material.Specular", 1);
+    LoadUniformFloat(ObjectSP, "material.Shininess", 32.0f);
+    LoadUniformVec3(ObjectSP, "light.Position", LightPos);
+    LoadUniformVec3(ObjectSP, "light.Ambient", InitVec3(1.0f));
+    LoadUniformVec3(ObjectSP, "light.Diffuse", InitVec3(1.0f));
+    LoadUniformVec3(ObjectSP, "light.Specular", InitVec3(1.0f, 1.0f, 1.0f));
 
     glUseProgram(LightSP);
-    glUniform3f(glGetUniformLocation(LightSP, "LightPos"), LightPos.x, LightPos.y, LightPos.z);
-    glUniform3f(glGetUniformLocation(LightSP, "LightColor"), 1.0f, 1.0f, 1.0f);
+    LoadUniformVec3(LightSP, "LightPos", LightPos);
+    LoadUniformVec3(LightSP, "LightColor", InitVec3(1.0f));
     
     while (!glfwWindowShouldClose(Window)) {
         LARGE_INTEGER WorkCounter = Win32GetWallClock();
@@ -557,9 +557,9 @@ int main()
         glEnable(GL_DEPTH_TEST);
 
         glUseProgram(ObjectSP);
-        glUniform3f(glGetUniformLocation(ObjectSP, "ViewPos"), State.Camera.CameraPos.x, State.Camera.CameraPos.y, State.Camera.CameraPos.z);
-        glUniformMatrix4fv(glGetUniformLocation(ObjectSP, "View"), 1, GL_TRUE, view);
-        glUniformMatrix4fv(glGetUniformLocation(ObjectSP, "Projection"), 1, GL_TRUE, projection);
+        LoadUniformVec3(ObjectSP, "ViewPos", State.Camera.CameraPos);
+        LoadUniformMat4(ObjectSP, "View", view);
+        LoadUniformMat4(ObjectSP, "Projection", projection);
 
         // model 2
         Mat4 Tx = CreateTranslationMat(InitVec4(3.0f, 1.0f, -3.0f, 1));
@@ -568,8 +568,8 @@ int main()
         DrawModel(Model, ObjectSP, BO_Container.VAO);
 
         glUseProgram(LightSP);
-        glUniformMatrix4fv(glGetUniformLocation(LightSP, "View"), 1, GL_TRUE, view);
-        glUniformMatrix4fv(glGetUniformLocation(LightSP, "Projection"), 1, GL_TRUE, projection);
+        LoadUniformMat4(LightSP, "View", view);
+        LoadUniformMat4(LightSP, "Projection", projection);
         // light model
         Mat4 Model1 = IdentityMat();
         Mat4 ScaledModel = Mul_Mat4Mat4(CreateScaleMat(InitVec4(0.2f, 0.2f, 0.2f, 1.0f)), Model1);

@@ -1,5 +1,25 @@
 #include "gl_graphics.h"
 
+void LoadUniformInt(u32 SP, const char *Uniform, i32 Val)
+{
+    glUniform1i(glGetUniformLocation(SP, Uniform), Val);
+}
+
+void LoadUniformFloat(u32 SP, const char *Uniform, r32 Val)
+{
+    glUniform1f(glGetUniformLocation(SP, Uniform), Val);
+}
+
+void LoadUniformVec3(u32 SP, const char *Uniform, Vec3 Val)
+{
+    glUniform3f(glGetUniformLocation(SP, Uniform), Val.x, Val.y, Val.z);
+}
+
+void LoadUniformMat4(u32 SP, const char *Uniform, const r32 *Val)
+{
+    glUniformMatrix4fv(glGetUniformLocation(SP, Uniform), 1, GL_TRUE, Val);
+}
+
 u32 CreateTriangle(r32 vertices[], i32 sz)
 {
     u32 VAO;

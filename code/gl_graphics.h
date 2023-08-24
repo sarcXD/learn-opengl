@@ -1,6 +1,11 @@
 #ifndef GL_GRAPHICS_H
 #define GL_GRAPHICS_H
 
+void LoadUniformInt(u32 SP, const char *Unifrom, i32 Val);
+void LoadUniformFloat(u32 SP, const char *Uniform, r32 Val);
+void LoadUniformVec3(u32 SP, const char *Unifrom, Vec3 Val);
+void LoadUniformMat4(u32 SP, const char *Uniform, Mat4 Val);
+
 u32 CreateTriangle(r32 vertices[], i32 sz);
 void DrawTriangle(u32 VAO);
 

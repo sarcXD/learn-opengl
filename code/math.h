@@ -58,6 +58,17 @@ typedef struct Vec3 {
 
 
 // *************************** Primarily for 3d things ********************************
+Vec3 InitVec3(r32 val)
+{
+  Vec3 R = Vec3{val,val,val};
+  return R;
+}
+
+Vec3 InitVec3(r32 x, r32 y, r32 z)
+{
+  Vec3 R = Vec3{x,y,z};
+  return R;
+}
 
 r32 LenVec3(Vec3 V)
 {
