@@ -340,6 +340,23 @@ Mat4 CreatePerspectiveUsingFrustum(r32 fov, r32 aspect, r32 nearCam, r32 farCam)
   return CreateFrustum(left, right, bot, top, nearCam, farCam);
 }
 
+Mat4 CreateOrthographic(r32 left, r32 right, r32 bot, r32 top, r32 nearCam, r32 farCam)
+{
+  Mat4 F = {0};
+  F.x0 = 2.0f/(right - left);
+  F.w0 = -(right + left)/(right - left);
+
+  F.y1 = 2.0f/(top - bot);
+  F.w1 = -(top + bot)/(top - bot);
+
+  F.z2 = -2.0f/(farCam - nearCam);
+  F.w2 = -(farCam + nearCam)/(farCam - nearCam);
+
+  F.w3 = 1.0f;
+
+  return F;
+}
+
 // @research: the gram-schmidt process:
 // https://en.wikipedia.org/wiki/Gram%E2%80%93Schmidt_process 
 Mat4 CreateLookAtMat4(Vec3 CameraPos, Vec3 CameraTarget, Vec3 Up)
